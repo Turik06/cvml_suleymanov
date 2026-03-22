@@ -18,6 +18,7 @@ dataset = CyrrilicDataset(
 )
 idx_to_class = {v: k for k, v in dataset.class_to_idx.items()}
 
+
 model = CyrillicCNN().to(device)
 model.load_state_dict(torch.load(save_path / "model.pth", map_location=device))
 model.eval() 

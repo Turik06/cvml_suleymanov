@@ -62,7 +62,7 @@ class CyrillicCNN(nn.Module):
 
         self.fc1 = nn.Linear(128 * 3 * 3, 256) 
         self.relu_fc = nn.ReLU()
-        self.dropout = nn.Dropout(0.3)
+        self.dropout = nn.Dropout(0.5)
         self.fc2 = nn.Linear(256, 34) 
 
     def forward(self, x):
