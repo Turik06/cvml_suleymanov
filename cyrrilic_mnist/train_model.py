@@ -40,6 +40,7 @@ class CyrrilicDataset(Dataset):
     
 
 class CyrillicCNN(nn.Module):
+
     def __init__(self):
         super(CyrillicCNN, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, padding=1)
@@ -52,28 +53,44 @@ class CyrillicCNN(nn.Module):
         self.relu2 = nn.ReLU()
         self.pool2 = nn.MaxPool2d(2, 2)
         
-        self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(64 * 7 * 7, 256)
+        self.conv3 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1)
+        self.bn3 = nn.BatchNorm2d(128)
         self.relu3 = nn.ReLU()
-        self.dropout = nn.Dropout(0.5)
+        self.pool3 = nn.MaxPool2d(2, 2) 
+        
+        self.flatten = nn.Flatten()
+
+        self.fc1 = nn.Linear(128 * 3 * 3, 256) 
+        self.relu_fc = nn.ReLU()
+        self.dropout = nn.Dropout(0.3)
         self.fc2 = nn.Linear(256, 34) 
 
     def forward(self, x):
+       
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu1(x)
         x = self.pool1(x)
+
         x = self.conv2(x)
         x = self.bn2(x)
         x = self.relu2(x)
         x = self.pool2(x)
+
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = self.relu3(x)
+        x = self.pool3(x)
+
         x = self.flatten(x)
+
         x = self.fc1(x)
         x = self.relu3(x)
         x = self.dropout(x)
         x = self.fc2(x)
-        return x
 
+        return x
+    
 save_path = Path(__file__).parent
 device = torch.device("cuda" \
                       if torch.cuda.is_available() else "cpu")
@@ -83,8 +100,11 @@ torch.manual_seed(42)
 train_transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Resize((28, 28)),
-    transforms.RandomRotation(10),        
-    transforms.RandomAffine(degrees=0, translate=(0.05, 0.05)), 
+    transforms.RandomAffine(
+        degrees=10, 
+        translate=(0.05, 0.05), 
+        scale=(0.9, 1.1)
+    ), 
     transforms.Normalize((0.5,), (0.5,))
 ])
 
@@ -112,6 +132,7 @@ model = CyrillicCNN().to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10)
+
 
 num_epochs = 20
 train_loss = []
@@ -174,4 +195,3 @@ with torch.no_grad():
         correct += (predicted == labels).sum().item()
 
 print(f"Accuracy on the test sample: {100 * correct / total}")
-
