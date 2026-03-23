@@ -1,41 +1,65 @@
-import torch
-import random
+import torch, random, zipfile
 import matplotlib.pyplot as plt
 from pathlib import Path
+from torch.utils.data import DataLoader
 from torchvision import transforms
-from train_model import CyrillicCNN, CyrrilicDataset
+from sklearn.model_selection import train_test_split
+from train_model import CyrillicCNN, CyrrilicDataset, get_zip_info
 
-save_path = Path(__file__).parent
+root = Path(__file__).parent
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+zip_path, model_path = root / 'cyrillic.zip', root / "model.pth"
 
-dataset = CyrrilicDataset(
-    zip_path=save_path / 'cyrillic.zip', 
-    transform=transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Resize((28, 28)),
-        transforms.Normalize((0.5,), (0.5,))
-    ])
-)
-idx_to_class = {v: k for k, v in dataset.class_to_idx.items()}
+all_paths, class_to_idx = get_zip_info(zip_path)
+idx_to_class = {v: k for k, v in class_to_idx.items()}
+all_labels = [class_to_idx[p.split('/')[1]] for p in all_paths]
 
+_, test_paths = train_test_split(all_paths, test_size=0.2, random_state=42, stratify=all_labels)
+
+test_loader = DataLoader(CyrrilicDataset(zip_path, test_paths, class_to_idx, transforms.Compose([
+    transforms.ToTensor(), 
+    transforms.Resize((28, 28)), 
+    transforms.Normalize((0.5,), (0.5,))
+])), batch_size=64, shuffle=True)
 
 model = CyrillicCNN().to(device)
-model.load_state_dict(torch.load(save_path / "model.pth", map_location=device))
-model.eval() 
+if model_path.exists():
+    model.load_state_dict(torch.load(model_path, map_location=device))
+model.eval()
 
-plt.figure(figsize=(15, 5))
+correct, total = 0, 0
+plt.figure(figsize=(10, 10))
+
 with torch.no_grad():
-    for i, idx in enumerate(random.sample(range(len(dataset)), 5)):
-        image, label = dataset[idx]
+    for b_idx, (images, labels) in enumerate(test_loader):
+        images, labels = images.to(device), labels.to(device)
+        preds = model(images).argmax(1)
         
-        pred_idx = model(image.unsqueeze(0).to(device)).argmax(1).item()
+        if b_idx == 0:
+            for i in range(min(16, len(images))):
+                plt.subplot(4, 4, i + 1)
+                p_c, r_c = idx_to_class[preds[i].item()], idx_to_class[labels[i].item()]
+                plt.title(f"Predict: {p_c} | Real: {r_c}")
+        
+        total += labels.size(0)
+        correct += (preds == labels).sum().item()
 
-        real_char = idx_to_class[label]
-        pred_char = idx_to_class[pred_idx]
+with torch.no_grad():
+    for b_idx, (images, labels) in enumerate(test_loader):
+        preds = model(images).argmax(1)
+        
+        if b_idx == 0:
+            for i in range(min(16, len(images))):
+                plt.subplot(4, 4, i + 1)
+                img = images[i].squeeze() * 0.5 + 0.5
+                plt.imshow(img, cmap='gray')
+                
+                p_c, r_c = idx_to_class[preds[i].item()], idx_to_class[labels[i].item()]
+                plt.title(f"Predict: {p_c} | Real: {r_c}")
+        
+        total += labels.size(0)
+        correct += (preds == labels).sum().item()
 
-        plt.subplot(1, 5, i + 1)
-        plt.imshow(image.squeeze() * 0.5 + 0.5)
-        plt.title(f"Predict:{pred_char} | Real:{real_char}")
-
-plt.tight_layout()
+plt.savefig(root / "prediction.png")
+print(f"Accuracy: {100 * correct / total}%")
 plt.show()
