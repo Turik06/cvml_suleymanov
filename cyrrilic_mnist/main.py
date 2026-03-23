@@ -30,35 +30,29 @@ model.eval()
 correct, total = 0, 0
 plt.figure(figsize=(10, 10))
 
-with torch.no_grad():
-    for b_idx, (images, labels) in enumerate(test_loader):
-        images, labels = images.to(device), labels.to(device)
-        preds = model(images).argmax(1)
-        
-        if b_idx == 0:
-            for i in range(min(16, len(images))):
-                plt.subplot(4, 4, i + 1)
-                p_c, r_c = idx_to_class[preds[i].item()], idx_to_class[labels[i].item()]
-                plt.title(f"Predict: {p_c} | Real: {r_c}")
-        
-        total += labels.size(0)
-        correct += (preds == labels).sum().item()
 
 with torch.no_grad():
     for b_idx, (images, labels) in enumerate(test_loader):
-        preds = model(images).argmax(1)
+        images, labels = images.to(device), labels.to(device)
+        
+        outputs = model(images)
+        preds = outputs.argmax(1)
         
         if b_idx == 0:
             for i in range(min(16, len(images))):
                 plt.subplot(4, 4, i + 1)
-                img = images[i].squeeze() * 0.5 + 0.5
+                
+                img = images[i].squeeze().cpu() * 0.5 + 0.5
                 plt.imshow(img, cmap='gray')
                 
-                p_c, r_c = idx_to_class[preds[i].item()], idx_to_class[labels[i].item()]
-                plt.title(f"Predict: {p_c} | Real: {r_c}")
+                p_c = idx_to_class[preds[i].item()]
+                r_c = idx_to_class[labels[i].item()]
+                plt.title(f"Predict: {p_c} | Real: {r_c}",  fontsize=10)
         
         total += labels.size(0)
         correct += (preds == labels).sum().item()
+        plt.tight_layout()
+
 
 plt.savefig(root / "prediction.png")
 print(f"Accuracy: {100 * correct / total}%")
