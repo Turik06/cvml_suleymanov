@@ -150,4 +150,8 @@ while True:
         loss = train(buffer)
         if loss_a is not None and loss_e is not None:
             print(f"Loss AlexNet = {loss_a}, Loss EffNet = {loss_e}")
+            log_text = f"Loss AlexNet = {loss_a}, Loss EffNet = {loss_e}"
+
+            with open(save_path / "loss_log.txt", "a", encoding="utf-8") as f:
+                f.write(log_text + "\n")
         count_labeled = 0
