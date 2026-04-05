@@ -10,19 +10,25 @@ from pathlib import Path
 
 
 save_path = Path(__file__).parent
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 def build_model(model_path):
-    weights = torchvision.models.AlexNet_Weights.IMAGENET1K_V1
-    model = torchvision.models.alexnet(weights=weights)
+    weights = torchvision.models.EfficientNet_B0_Weights.IMAGENET1K_V1
+    model = torchvision.models.efficientnet_b0(weights=weights)
     for param in model.features.parameters():
         param.requires_grad = False
 
-    features = model.classifier[6].in_features
-    model.classifier[6] = torch.nn.Linear(features, 1)
+    # features = model.classifier[6].in_features
+    # model.classifier[6] = torch.nn.Linear(features, 1)
+
+    features = model.classifier[1].in_features
+    model.classifier[1] = torch.nn.Linear(features, 1)
 
     if model_path == None and model_path.exists():
         model.load_state_dict(torch.load(model_path))
     
-    return model
+    return model.to(device)
 
 
 model_file = save_path / "model.pth"
@@ -51,6 +57,8 @@ def train(buffer):
     model.train()
     images, labels = buffer.get_batch()
     optimizer.zero_grad()
+    images = images.to(device) 
+    labels = labels.to(device) 
     predictions = model(images).squeeze()
     loss = criterion(predictions, labels)
     loss.backward()
@@ -61,7 +69,7 @@ def predict(frame):
     model.eval()
     tensor = transform(cv2.cvtColor(frame, 
                                     cv2.COLOR_BGR2RGB))
-    tensor = tensor.unsqueeze(0)
+    tensor = tensor.unsqueeze(0).to(device)
     with torch.no_grad():
         predicted = model(tensor).squeeze()
         prob = torch.sigmoid(predicted).item()
