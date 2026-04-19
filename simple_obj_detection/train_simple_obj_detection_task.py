@@ -51,30 +51,44 @@ class SimpleDetector(nn.Module):
 
     def __init__(self, num_classes=3):
         super().__init__()
+        
         self.backbone = nn.Sequential(
-            nn.Conv2d(3, 6, 5),
-            nn.AvgPool2d(2, 2),
-
-            nn.Conv2d(6, 16, 5),
-            nn.AvgPool2d(2, 2),
-
-            nn.Conv2d(16, 120, 5),
-
-            nn.AdaptiveAvgPool2d(1),
-        )
-        self.fc = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(120, 84),
+            nn.Conv2d(3, 16, 3),
+            nn.BatchNorm2d(16),
             nn.ReLU(),
+            nn.MaxPool2d(2, 2), 
+
+            nn.Conv2d(16, 24, 3),
+            nn.BatchNorm2d(24),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2), 
+
+            nn.Conv2d(24, 32,3),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d((2, 2)), 
         )
-        self.cls_head = nn.Linear(84, num_classes)
-        self.bbox_head = nn.Linear(84, 4)
+
+        self.cls_fc = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, num_classes)
+        )
+
+        self.bbox_fc = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, 4)
+        )
 
     def forward(self, x):
         features = self.backbone(x)
-        features = self.fc(features)
-        return self.cls_head(features), torch.sigmoid(self.bbox_head(features))
-
+        cls_logits = self.cls_fc(features)
+        bbox_coords = torch.sigmoid(self.bbox_fc(features))
+        
+        return cls_logits, bbox_coords
 
 def giou_loss(pred, target):
     p_x1 = pred[:, 0] - pred[:, 2] / 2
@@ -124,7 +138,7 @@ transform = transforms.Compose(
     ]
 )
 
-root = Path("shapes_dataset")
+root = Path(__file__).parent / "shapes" / "shapes_dataset" 
 train_ds = ShapesDataset(root / "train", transform=transform)
 val_ds = ShapesDataset(root / "val", transform=transform)
 
