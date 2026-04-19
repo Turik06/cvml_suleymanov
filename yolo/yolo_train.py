@@ -26,17 +26,17 @@ if __name__ == '__main__':
     result = model.train(
         data=str(root / "dataset.yaml"),
         imgsz=640,
-        batch=4,
+        batch=16,
         workers=2,
 
-        epochs = 20,
+        epochs = 50,
         patience = 5,
         optimizer = "AdamW",
-        lr0 = 0.01,
-        warmup_epochs = 3,
+        lr0 = 0.001,
+        warmup_epochs = 5,
         cos_lr = True,
 
-        dropout = 0.2,
+        dropout = 0.3,
 
         hsv_h=0.015, 
         hsv_s=0.7,

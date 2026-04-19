@@ -23,7 +23,7 @@ while True:
 
     if predict_mode:
         t = time.time()
-        results = model(frame, conf=0.2, verbose=False)
+        results = model(frame, conf=0.4, verbose=False)
         elapsed = time.time() - t
         
         for r in results:
