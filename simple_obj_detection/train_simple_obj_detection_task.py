@@ -51,44 +51,43 @@ class SimpleDetector(nn.Module):
 
     def __init__(self, num_classes=3):
         super().__init__()
-        
         self.backbone = nn.Sequential(
-            nn.Conv2d(3, 16, 3),
-            nn.BatchNorm2d(16),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2), 
-
-            nn.Conv2d(16, 24, 3),
-            nn.BatchNorm2d(24),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2), 
-
-            nn.Conv2d(24, 32,3),
+            nn.Conv2d(3,32,3,padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(),
-            nn.AdaptiveAvgPool2d((2, 2)), 
-        )
+            nn.MaxPool2d(2),
 
-        self.cls_fc = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(128, 64),
+            nn.Conv2d(32,64,3,padding=1),
+            nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.Linear(64, num_classes)
-        )
+            nn.MaxPool2d(2),
 
-        self.bbox_fc = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(128, 64),
+            nn.Conv2d(64,128,3 ,padding=1),
+            nn.BatchNorm2d(128),
             nn.ReLU(),
-            nn.Linear(64, 4)
+            nn.MaxPool2d(2),
+
+            nn.Conv2d(128, 256,3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+
+            nn.AdaptiveAvgPool2d(2)
         )
+        self.fc = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(1024, 128),
+            nn.ReLU(),
+            nn.Dropout(0.3)
+        )
+        self.cls_head = nn.Linear(128, num_classes)
+        self.bbox_head = nn.Linear(128, 4)
 
     def forward(self, x):
         features = self.backbone(x)
-        cls_logits = self.cls_fc(features)
-        bbox_coords = torch.sigmoid(self.bbox_fc(features))
-        
-        return cls_logits, bbox_coords
+        features = self.fc(features)
+        return self.cls_head(features), torch.sigmoid(self.bbox_head(features))
+
 
 def giou_loss(pred, target):
     p_x1 = pred[:, 0] - pred[:, 2] / 2
@@ -138,7 +137,7 @@ transform = transforms.Compose(
     ]
 )
 
-root = Path(__file__).parent / "shapes" / "shapes_dataset" 
+root = Path("shapes/shapes_dataset")
 train_ds = ShapesDataset(root / "train", transform=transform)
 val_ds = ShapesDataset(root / "val", transform=transform)
 
@@ -294,3 +293,4 @@ def show_predictions(loader, model, n=8):
 
 
 show_predictions(val_loader, model)
+print()
