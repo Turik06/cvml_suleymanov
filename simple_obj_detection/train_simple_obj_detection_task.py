@@ -74,20 +74,29 @@ class SimpleDetector(nn.Module):
 
             nn.AdaptiveAvgPool2d(2)
         )
-        self.fc = nn.Sequential(
+
+        self.cls_fc = nn.Sequential(
             nn.Flatten(),
             nn.Linear(1024, 128),
             nn.ReLU(),
-            nn.Dropout(0.3)
+            # nn.Dropout(0.3)
+        )
+
+        self.bbox_fc = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(1024, 512),
+            nn.ReLU()
         )
         self.cls_head = nn.Linear(128, num_classes)
-        self.bbox_head = nn.Linear(128, 4)
+        self.bbox_head = nn.Linear(512, 4)
 
     def forward(self, x):
         features = self.backbone(x)
-        features = self.fc(features)
-        return self.cls_head(features), torch.sigmoid(self.bbox_head(features))
+        
+        features_cls = self.cls_fc(features)
+        features_bbox = self.bbox_fc(features)
 
+        return self.cls_head(features_cls), torch.sigmoid(self.bbox_head(features_bbox))
 
 def giou_loss(pred, target):
     p_x1 = pred[:, 0] - pred[:, 2] / 2
@@ -124,7 +133,7 @@ def giou_loss(pred, target):
     return (1 - giou).mean()
 
 
-def detection_loss(cls_pred, bbox_pred, cls_targets, bbox_targets, lambda_bbox=10.0):
+def detection_loss(cls_pred, bbox_pred, cls_targets, bbox_targets, lambda_bbox=100.0):
     loss_cls = F.cross_entropy(cls_pred, cls_targets)
     loss_bbox = F.smooth_l1_loss(bbox_pred, bbox_targets)
     loss_bbox += giou_loss(bbox_pred, bbox_targets)
@@ -137,7 +146,7 @@ transform = transforms.Compose(
     ]
 )
 
-root = Path("shapes/shapes_dataset")
+root = Path(__file__).parent / "shapes" / "shapes_dataset_random" 
 train_ds = ShapesDataset(root / "train", transform=transform)
 val_ds = ShapesDataset(root / "val", transform=transform)
 
